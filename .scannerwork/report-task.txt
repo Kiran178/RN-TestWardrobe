@@ -1,0 +1,6 @@
+projectKey=testwardrobe
+serverUrl=http://localhost:9001
+serverVersion=9.4.0.54424
+dashboardUrl=http://localhost:9001/dashboard?id=testwardrobe
+ceTaskId=AYkbkrbkiiAJFZ4baPdC
+ceTaskUrl=http://localhost:9001/api/ce/task?id=AYkbkrbkiiAJFZ4baPdC
