@@ -1,0 +1,45 @@
+name: OpenWardrobe Android
+
+on:
+  push:
+    branches: [Fastlane-Android]
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '2.7.5'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16.x'
+
+      - name: Setup Java
+        run: sudo apt-get install openjdk-11-jdk
+
+      - name: Install dependencies
+        run: |
+          gem install bundler
+          bundle install
+          npm install --legacy-peer-deps
+
+      - name: Set environment variables
+        run: |
+          echo "BASE_URL=${{ secrets.BASE_URL }}" >> .env
+
+      - name: Deploy to Beta
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{secrets.ANDROID_KEYSTORE_PASSWORD}}
+          ANDROID_KEY_ALIAS: ${{secrets.ANDROID_KEY_ALIAS}}
+          ANDROID_KEY_PASSWORD: ${{secrets.ANDROID_KEY_PASSWORD}}
+        run: |
+          cd android
+          fastlane beta
