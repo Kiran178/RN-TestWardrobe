@@ -1,0 +1,62 @@
+name: Openwardrobe IOS
+
+on:
+  push:
+    branches: [Fastlane-IOS]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Ruby
+
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "2.7.2"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "18.x"
+
+      - name: Install dependencies
+        run: |
+          pwd
+          cd ios
+          rm -rf Gemfile.lock
+          rm -rf Podfile.lock
+          pod deintegrate
+          gem install bundler
+          bundle install
+          sudo gem install fastlane
+          fastlane -v
+          brew install  openssl@1.1
+          brew link --force openssl@1.1
+          xcodebuild -version  
+          npm install --legacy-peer-deps
+          pod install
+          pod update
+      - name: Set environment variables
+        run: |
+          echo "BASE_URL=${{ secrets.BASE_URL }}" >> .env
+
+
+      - name: Build & upload iOS binary
+        env:
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          ASC_KEY: ${{ secrets.ASC_KEY }}
+          APP_STORE_CONNECT_API_KEY_KEY_FILEPATH: ${{secrets.APP_STORE_CONNECT_API_KEY_KEY_FILEPATH}}
+          GIT_CERT_URL: ${{secrets.GIT_CERT_URL}}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{secrets.MATCH_GIT_BASIC_AUTHORIZATION}}
+          MATCH_PASSWORD: ${{secrets.MATCH_PASSWORD}}
+          FASTLANE_USER: ${{secrets.FASTLANE_USER}}
+          FASTLANE_PASSWORD: ${{secrets.FASTLANE_PASSWORD}}
+
+        run: |
+          cd ios
+          fastlane dev

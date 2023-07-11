@@ -1,0 +1,152 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:ios)
+
+# split the lane
+platform :ios do
+
+    desc "App Store Connect Api Key"
+    lane :app_store_connect do
+      app_store_connect_api_key(
+        key_id: ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"],
+        issuer_id: ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"],
+        key_filepath: ENV["APP_STORE_CONNECT_API_KEY_KEY_FILEPATH"],
+        duration: 1200,
+        in_house: false
+      )
+    end
+    
+   desc "Sync certificates"
+    lane :sync_certificates do
+      #read-only disables match from overriding the existing certificates.
+      match({readonly: true, type: "appstore"})
+   end         
+      
+
+   desc "Key chain creation"
+   lane :create_local_keychain do
+     create_keychain(   
+       name: "action_keychain",
+       password: ENV["MATCH_PASSWORD"],
+       default_keychain: true,
+       unlock: true,
+       timeout: 3600,
+       lock_when_sleeps: false
+    )
+    end
+
+
+    desc "Match - Install Provisioning Profiles and Update the Project"
+    lane :match_certs_profiles do
+      match(
+        git_url: ENV["GIT_CERT_URL"],
+        type: 'appstore',
+        keychain_name: "action_keychain",
+        keychain_password: ENV["MATCH_PASSWORD"],
+        git_basic_authorization: ENV["MATCH_GIT_BASIC_AUTHORIZATION"]
+      )
+    end
+
+    desc "Update Project Dev"
+    lane :dev_update_project_provisioning do
+      update_project_provisioning(
+        xcodeproj: ENV["XCODE_PROJ"],
+        profile: ENV["sigh_org.reactjs.native.example.TestWardrobe_appstore_profile-path"]
+      )
+
+      update_project_team(
+        path: ENV["XCODE_PROJ"],
+        teamid: ENV["TEAM_ID"]
+      )
+    end
+
+    desc "Update Project Uat"
+    lane :uat_update_project_provisioning do
+      update_project_provisioning(
+        xcodeproj: ENV["XCODE_PROJ"],
+        profile: ENV["sigh_org.reactjs.native.example.TestWardrobe_appstore_profile-path"]
+      )
+
+      update_project_team(
+        path: ENV["XCODE_PROJ"],
+        teamid: ENV["TEAM_ID"]
+      )
+    end
+
+    desc "Incremental Build Number"
+    lane :increment_build do
+
+      previous_build_number = latest_testflight_build_number(
+        app_identifier: ENV["APP_IDENTIFIER"] 
+      )
+
+      current_build_number = previous_build_number + 1
+
+      increment_build_number(
+          xcodeproj: ENV["XCODE_PROJ"],
+          build_number: current_build_number
+      )
+    end
+
+    desc "GYM - To build Signed IPA"
+    lane :gym_to_build_ipa do
+
+      gym(
+          codesigning_identity: ENV["sigh_org.reactjs.native.example.TestWardrobe_appstore_certificate-name"],
+          workspace: ENV["IOS_WORKSPACE"],
+          clean: true,
+          silent: true,
+          export_method: "app-store",
+          export_options: {
+            provisioningProfiles: { 
+                "org.reactjs.native.example.TestWardrobe" => "match AppStore org.reactjs.native.example.TestWardrobe"
+            }
+          }
+      )
+    end
+
+    desc "Upload to Test Flight"
+    lane :ipa_upload_to_testflight do
+
+      upload_to_testflight(uses_non_exempt_encryption: false, skip_waiting_for_build_processing: true)
+
+    end
+
+    desc "Beta Build to Test Flight"
+    lane :dev do
+      setup_ci if ENV['CI']
+      app_store_connect
+      sync_certificates
+      create_local_keychain
+      match_certs_profiles
+      dev_update_project_provisioning
+      increment_build
+      gym_to_build_ipa
+      ipa_upload_to_testflight
+    end
+
+    desc "Beta Build to Test Flight"
+    lane :uat do
+      setup_ci if ENV['CI']
+      app_store_connect
+      create_local_keychain
+      match_certs_profiles
+      uat_update_project_provisioning
+      increment_build
+      gym_to_build_ipa
+      ipa_upload_to_testflight
+    end
+  end
