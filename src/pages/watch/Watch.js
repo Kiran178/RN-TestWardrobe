@@ -11,6 +11,7 @@ import React, {useState} from 'react';
 import WatchCard from '../../components/WatchCard';
 import {watchData} from '../../assets/data';
 import Colors from '../../assets/colors/Colors';
+import PostLoader from '../../components/PostLoader';
 
 const DEFAULT_CATEGORY = 'All';
 const Watch = () => {
@@ -54,7 +55,8 @@ const Watch = () => {
           />
         </View>
         <ScrollView showsVerticalScrollIndicator={false}>
-          {watchData.map((val, index) => (
+          {/* <PostLoader /> */}
+          {watchData?.map((val, index) => (
             <View key={index}>
               <WatchCard
                 title={val.title}

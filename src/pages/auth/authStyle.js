@@ -1,11 +1,11 @@
 import {StyleSheet} from 'react-native';
 import Colors from '../../assets/colors/Colors';
-import {windowWidth} from '../../utils/Dimensions';
+import {windowWidth, windowHeight} from '../../utils/Dimensions';
 
 export const AuthStyles = StyleSheet.create({
   container: {
     backgroundColor: Colors.green,
-    flex: 1,
+    minHeight: windowHeight,
     alignItems: 'center',
     paddingHorizontal: 50,
     justifyContent: 'center',

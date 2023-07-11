@@ -25,11 +25,11 @@ const WatchCard = props => {
                   style={styles.likeIcon}
                 />
               </Pressable>
-              <Text>{likeCount}</Text>
+              <Text style={styles.likeText}>{likeCount}</Text>
             </View>
             <View style={styles.viewWrapper}>
               <Text style={styles.viewCount}>{viewCount}</Text>
-              <Text>Views</Text>
+              <Text style={styles.likeText}>Views</Text>
             </View>
           </View>
         </View>
@@ -79,5 +79,9 @@ const styles = StyleSheet.create({
   },
   viewCount: {
     marginRight: 5,
+    color: Colors.black,
+  },
+  likeText: {
+    color: Colors.black,
   },
 });

@@ -22,7 +22,7 @@ const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // SplashScreen.hide(); //hides the splash screen on app load.
+    SplashScreen.hide(); //hides the splash screen on app load.
   }, []);
 
   return (
@@ -30,7 +30,7 @@ const App = () => {
       <AuthContext setIsLoggedIn={data => setIsLoggedIn(data)}>
         <ToastProvider>
           <NavigationContainer theme={navTheme}>
-            {!isLoggedIn ? (
+            {isLoggedIn ? (
               <AuthStack setIsLoggedIn={setIsLoggedIn} />
             ) : (
               <TabNavigation />

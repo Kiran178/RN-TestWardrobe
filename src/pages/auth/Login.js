@@ -1,16 +1,15 @@
 import {
-  StyleSheet,
   Text,
   View,
   SafeAreaView,
   Image,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import React, {useState, useContext, useEffect} from 'react';
-import {windowWidth} from '../../utils/Dimensions';
 
+import {AuthStyles} from './authStyle';
 import CustomInput from '../../components/CustomInput';
-import Colors from '../../assets/colors/Colors';
 import ButtonOutline from '../../components/ButtonOutline';
 import GoogleLoginBtn from '../../components/GoogleLoginBtn';
 import {MyContext} from '../../context/AuthContext';
@@ -19,12 +18,20 @@ import {LOGIN_USER} from '../../graphql/authSchema';
 import * as Keychain from 'react-native-keychain';
 import {getUniqueId} from 'react-native-device-info';
 import {useToast} from 'react-native-toast-notifications';
+import useKeyboardActive from '../../hooks/useKeyboardActive';
+import {IOS} from '../../utils/Platform';
+import ReactNativeBiometrics, {BiometryTypes} from 'react-native-biometrics';
+import Loader from '../../components/Loader';
 
 const LogoImage = require('../../assets/images/logo.png');
 
 const Login = ({navigation}) => {
   const toast = useToast();
+  const keyboard = useKeyboardActive();
+  const rnBiometrics = new ReactNativeBiometrics();
   const [showPassword, setShowPassword] = useState(true);
+  const [userCredentials, setUserCredentials] = useState(false);
+
   const [loginDetails, setLoginDetails] = useState({
     email: '',
     password: '',
@@ -33,41 +40,75 @@ const Login = ({navigation}) => {
 
   const {setIsLoggedIn} = useContext(MyContext);
   const handleShowPassword = () => setShowPassword(!showPassword);
+  const [loginUser, {loading}] = useMutation(LOGIN_USER);
 
-  useEffect(() => {
-    getCredentials();
-  }, []);
-
-  const getCredentials = async () => {
-    // Retrieve the credentials
+  const handleUserCredentials = async () => {
     const credentials = await Keychain.getGenericPassword();
-    if (credentials) {
-      console.log(
-        'Credentials successfully loaded for user ' + credentials.username,
-        credentials.password,
-      );
-    } else {
-      console.log('No credentials stored');
-    }
-    // await Keychain.resetGenericPassword();
+    setUserCredentials(credentials);
   };
 
-  const [loginUser, {loading}] = useMutation(LOGIN_USER);
-  const handleLoginUser = async () => {
-    let username = loginDetails.email;
-    let password = loginDetails.password;
+  useEffect(() => {
+    if (loginDetails.deviceId !== '' && userCredentials) {
+      handleBiometrics();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loginDetails.deviceId]);
+
+  useEffect(() => {
+    handleUserCredentials();
+    getUniqueId().then(uniqueId => {
+      setLoginDetails({...loginDetails, deviceId: uniqueId});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  //For Biometrics
+  const handleBiometrics = async () => {
+    try {
+      const {biometryType} = await rnBiometrics.isSensorAvailable();
+      const {success} = await rnBiometrics.simplePrompt({
+        promptMessage: 'Authenticate using biometrics',
+      });
+
+      if (success) {
+        // Biometric authentication succeeded
+        handleLoginUser(userCredentials.username, userCredentials.password);
+        return;
+      }
+
+      if (
+        biometryType === BiometryTypes.FaceID ||
+        biometryType === BiometryTypes.TouchID
+      ) {
+        handleLoginUser(userCredentials.username, userCredentials.password);
+        return;
+      }
+      // Biometrics is not available or authentication failed, proceed with regular login
+      console.log(
+        'Biometrics not available or authentication failed, proceed with regular login',
+      );
+      // Proceed with login logic
+    } catch (error) {
+      console.log('Error:', error);
+    }
+  };
+
+  const handleLoginUser = async (user, pwd) => {
+    let username = loginDetails.email || user;
+    let password = loginDetails.password || pwd;
+
+    await Keychain.setGenericPassword(username, password);
     try {
       const {data} = await loginUser({
         variables: {
           userInput: {
-            email: loginDetails.email,
-            password: loginDetails.password,
+            email: username,
+            password: password,
             deviceId: loginDetails.deviceId,
           },
         },
       });
       // Handle success, access the returned data
-      await Keychain.setGenericPassword(username, password);
       setIsLoggedIn(data.loginUser.token);
     } catch (err) {
       // Handle error
@@ -85,109 +126,65 @@ const Login = ({navigation}) => {
     }
   };
 
-  useEffect(() => {
-    getUniqueId().then(uniqueId => {
-      setLoginDetails(prev => ({...prev, deviceId: uniqueId}));
-    });
-  }, []);
-
-  console.log(loading, 'loading');
   return (
-    <View style={styles.container}>
-      <SafeAreaView>
-        <Image source={LogoImage} style={styles.logoImage} />
-        <CustomInput
-          placeholder="User Name"
-          value={loginDetails.email}
-          onChangeText={val =>
-            setLoginDetails(prevState => ({...prevState, email: val}))
-          }
-          style={styles.inputHelper}
-        />
-        <CustomInput
-          placeholder="Password"
-          showPassword={showPassword}
-          handleShowPassword={handleShowPassword}
-          value={loginDetails.password}
-          secureTextEntry
-          onChangeText={val =>
-            setLoginDetails(prevState => ({...prevState, password: val}))
-          }
-        />
-        <View>
-          <View style={styles.textWrapper}>
-            <Text style={styles.text}>Not A Member?</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('SignupScreen')}>
-              <Text style={styles.textLink}>Sign Up</Text>
+    <ScrollView showsVerticalScrollIndicator={false}>
+      {loading ? <Loader /> : null}
+      <View
+        style={[
+          AuthStyles.container,
+          IOS ? {paddingBottom: keyboard.keyboardHeight} : null,
+        ]}>
+        <SafeAreaView>
+          <Image source={LogoImage} style={AuthStyles.logoImage} />
+          <CustomInput
+            placeholder="User Name"
+            keyboardType="email-address"
+            value={loginDetails.email}
+            onChangeText={val =>
+              setLoginDetails(prevState => ({...prevState, email: val}))
+            }
+            style={AuthStyles.inputHelper}
+          />
+          <CustomInput
+            placeholder="Password"
+            showPassword={showPassword}
+            handleShowPassword={handleShowPassword}
+            value={loginDetails.password}
+            secureTextEntry
+            onChangeText={val =>
+              setLoginDetails(prevState => ({...prevState, password: val}))
+            }
+          />
+          <View>
+            <View style={AuthStyles.textWrapper}>
+              <Text style={AuthStyles.text}>Not A Member?</Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('SignupScreen')}>
+                <Text style={AuthStyles.textLink}>Sign Up</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={AuthStyles.linkWrapper}>
+              <Text style={AuthStyles.textLink}>Forgot your Password?</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.linkWrapper}>
-            <Text style={styles.textLink}>Forgot your Password?</Text>
-          </TouchableOpacity>
-        </View>
-        <View>
-          <ButtonOutline
-            disabled={
-              loginDetails.email === '' || loginDetails.password === ''
-                ? true
-                : false
-            }
-            title="Log in"
-            style={styles.buttonHelper}
-            onPress={handleLoginUser}
-          />
-          <Text style={styles.orText}>OR</Text>
-          <GoogleLoginBtn />
-        </View>
-      </SafeAreaView>
-    </View>
+          <View>
+            <ButtonOutline
+              disabled={
+                loginDetails.email === '' || loginDetails.password === ''
+                  ? true
+                  : false
+              }
+              title="Log in"
+              style={AuthStyles.buttonHelper}
+              onPress={handleLoginUser}
+            />
+            <Text style={AuthStyles.orText}>OR</Text>
+            <GoogleLoginBtn />
+          </View>
+        </SafeAreaView>
+      </View>
+    </ScrollView>
   );
 };
 
 export default Login;
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: Colors.green,
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 50,
-    justifyContent: 'center',
-  },
-  logoImage: {
-    width: windowWidth - 100,
-    height: 100,
-    resizeMode: 'contain',
-    alignSelf: 'center',
-    marginBottom: 30,
-  },
-  inputHelper: {
-    marginBottom: 30,
-  },
-  buttonHelper: {
-    marginVertical: 30,
-  },
-  orText: {
-    textAlign: 'center',
-    color: Colors.white,
-  },
-  textWrapper: {
-    flexDirection: 'row',
-    alignSelf: 'center',
-    marginTop: 30,
-  },
-  textLink: {
-    color: Colors.white,
-    textDecorationLine: 'underline',
-    fontWeight: 'bold',
-  },
-  linkWrapper: {
-    alignSelf: 'center',
-    marginTop: 10,
-  },
-  text: {
-    color: Colors.white,
-    paddingRight: 10,
-  },
-});

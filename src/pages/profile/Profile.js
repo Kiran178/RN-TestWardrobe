@@ -9,7 +9,6 @@ import {
 import React, {useState} from 'react';
 import CustomInput from '../../components/CustomInput';
 import Colors from '../../assets/colors/Colors';
-import {windowWidth} from '../../utils/Dimensions';
 
 import Feather from 'react-native-vector-icons/Feather';
 const Profile = () => {
@@ -113,5 +112,6 @@ const styles = StyleSheet.create({
   },
   save: {
     textAlign: 'center',
+    color: Colors.black,
   },
 });

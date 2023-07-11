@@ -20,7 +20,7 @@ const CustomInput = props => {
     value,
     style,
   } = props;
-  const iconName = showPassword ? EYE_OPEN_ICON : EYE_CLOSE_ICON;
+  const iconName = !showPassword ? EYE_OPEN_ICON : EYE_CLOSE_ICON;
   return (
     <View style={[style, styles.wrapper]}>
       <View style={styles.helper}>
@@ -36,7 +36,7 @@ const CustomInput = props => {
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={Colors.lightGreen}
-          keyboardType={keyboardType}
+          keyboardType={keyboardType ? keyboardType : 'default'}
           value={value}
           secureTextEntry={showPassword}
           autoCapitalize="none"
